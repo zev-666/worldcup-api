@@ -22,7 +22,7 @@ app = FastAPI(title="World Cup 2026 API", description="赛程与预测数据", v
 # CORS 設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 暫時允許所有來源，部署 Vercel 後可改成指定網域
+    allow_origins=["https://worldcup-frontend-pi.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
