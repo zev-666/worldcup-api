@@ -1,0 +1,70 @@
+(
+echo 🏁 專案進度總結（截至 2026-05-20）
+echo ✅ 已完成
+echo 任務 1：後端健康檢查 + 防休眠
+echo 在 main.py 加入 /health 端點（支援 GET / HEAD）
+echo 部署至 Render，UptimeRobot 每 5 分鐘 ping 一次，防止免費服務休眠
+echo.
+echo 任務 2：Next.js 前端 + 部署 Vercel
+echo 建立 Next.js 專案 (worldcup-frontend)，顯示 104 場比賽（主客隊、台北時間、階段）
+echo 部署至 Vercel，公開網址：https://worldcup-frontend-pi.vercel.app
+echo 後端 FastAPI 加入 CORSMiddleware，限定允許此網域
+echo 前端頁面可成功呼叫 Render API 取得賽程
+echo.
+echo 任務 3：賠率資料庫 + 自動拉取賠率
+echo Supabase 建立 odds_snapshots 表（含 match_id, fixture_id, bookmaker, odds_data）
+echo 註冊 OddsPapi API，找到世界盃 tournamentId=16
+echo 撰寫 fetch_odds.py，每次拉取 pinnacle 與 bet365 兩家 1X2 賠率（各 48 場）
+echo 成功將賠率寫入 Supabase（共約 90 筆快照）
+echo FastAPI 新增 /odds?fixture_id=... 端點（可查詢賠率）
+echo 將 fetch_odds.py 推送至 GitHub，並在 Render 建立 Cron Job，每 6 小時自動執行一次，確保賠率持續更新且不超過每月 API 額度
+echo 後端環境變數已同步設定（SUPABASE_URL, SUPABASE_KEY, ODDSPAPI_KEY）
+echo.
+echo ⬜ 尚未完成（下次繼續）
+echo 任務 4：簡單預測模型（Poisson）
+echo 目標：新增 /predict/{match_id} 端點，根據兩隊實力差計算勝/平/負機率，並附上免責聲明。
+echo.
+echo 任務 5：用戶認證 + 會員分層
+echo 目標：整合 Supabase Auth，區分免費會員（僅看 1X2 機率）與 Pro 會員（可看讓球、大小球等）。
+echo.
+echo 📋 任務 4 詳細步驟（下次執行）
+echo 步驟 1：建立預測邏輯模組
+echo 在 worldcup_api 目錄下建立 predictor.py
+echo.
+echo 步驟 2：在 main.py 加入 /predict/{match_id} 端點
+echo 匯入 predictor，新增路由
+echo.
+echo 步驟 3：測試並部署
+echo 本機啟動 uvicorn main:app --reload，測試 /predict/某match_id
+echo 確認回傳的機率合理（預設 ELO 相同時，主客勝率應接近且平局機率有一定值）
+echo 推送至 GitHub，到 Render 手動部署 Web Service
+echo.
+echo 步驟 4（可選）：加入真實 ELO 分數
+echo 可在 matches 表新增 home_elo、away_elo 欄位，手動填入（或從其他 API 取得）
+echo 修改端點，改為讀取 match.home_elo 和 match.away_elo
+echo.
+echo 📋 任務 5 詳細步驟（任務 4 完成後執行）
+echo 步驟 1：在 Supabase 啟用 Auth
+echo 進入 Supabase 專案 → Authentication → Settings
+echo 啟用 Email/Password 登入（可先關閉 email 驗證，方便測試）
+echo 記錄專案的 anon key（前端用）
+echo.
+echo 步驟 2：前端加入登入/註冊頁面
+echo 安裝 Supabase JS 客戶端：npm install @supabase/supabase-js
+echo 在 Next.js 建立 login 和 register 頁面，使用 Supabase Auth API
+echo 登入成功後儲存 session，區分會員身份
+echo.
+echo 步驟 3：後端加入授權檢查
+echo 在需要保護的端點讀取 Authorization header，驗證 Supabase JWT
+echo 建立會員分層邏輯（例如 role 欄位在 profiles 表）
+echo 免費會員：/predict/{match_id} 只回傳 1X2 機率
+echo Pro 會員：額外回傳讓球、大小球等賠率（從 odds_snapshots 查詢更多市場）
+echo.
+echo 步驟 4：前端顯示會員專屬內容
+echo 根據登入狀態顯示不同數據
+echo Pro 會員可看到更豐富的賠率資訊
+echo.
+echo 💾 保存方式
+echo 將以上內容複製到一個 .txt 檔案（例如 project_status.txt），存放在 C:\Users\samli\Desktop\worldcup_api 目錄下
+echo 下次開機後，從任務 4 的詳細步驟繼續操作。我想把資料儲存到GITHUB跟GOOGLE雲端。讓我可以在別台電腦執行
+) > project_status.txt
