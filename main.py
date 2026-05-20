@@ -34,7 +34,7 @@ class MatchResponse(BaseModel):
 def root():
     return {"message": "World Cup 2026 API is running"}
     
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "ok"}
 
