@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware  # 新增
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from typing import List, Optional
@@ -17,6 +18,15 @@ if not url or not key:
 supabase: Client = create_client(url, key)
 
 app = FastAPI(title="World Cup 2026 API", description="赛程与预测数据", version="0.1.0")
+
+# CORS 設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 暫時允許所有來源，部署 Vercel 後可改成指定網域
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class MatchResponse(BaseModel):
     id: str
