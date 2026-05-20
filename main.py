@@ -33,6 +33,10 @@ class MatchResponse(BaseModel):
 @app.get("/")
 def root():
     return {"message": "World Cup 2026 API is running"}
+    
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.get("/matches", response_model=List[MatchResponse])
 def get_matches(limit: int = 50, skip: int = 0):
