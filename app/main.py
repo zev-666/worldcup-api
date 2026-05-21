@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import matches, odds, predictions
+from app.routers import matches, odds, predictions, users
 
 app = FastAPI()
 
@@ -20,6 +20,7 @@ app.add_middleware(
 app.include_router(matches.router)
 app.include_router(odds.router)
 app.include_router(predictions.router)
+app.include_router(users.router)
 
 # 防休眠健康檢查
 @app.get("/health")
