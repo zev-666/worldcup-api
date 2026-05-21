@@ -1,45 +1,41 @@
 import math
 
-def poisson_pmf(lam, k):
-    if lam <= 0:
-        return 1.0 if k == 0 else 0.0
-    return (lam ** k) * math.exp(-lam) / math.factorial(k)
+def predict_match(home_elo: float, away_elo: float, max_goals: int = 5):
+    """
+    使用 Poisson 分佈計算主勝、平局、客勝機率。
+    公式：
+        home_expected = 1.5 + (home_elo - away_elo) / 400
+        away_expected = 1.5 - (home_elo - away_elo) / 400
+    信心度 = min(|elo_diff| / 400, 1.0)
+    """
+    elo_diff = home_elo - away_elo
+    home_exp = 1.5 + elo_diff / 400
+    away_exp = 1.5 - elo_diff / 400
 
-def predict_match(home_elo, away_elo):
-    # 預期進球數
-    home_lambda = 1.5 + (home_elo - away_elo) / 400.0
-    away_lambda = 1.5 - (home_elo - away_elo) / 400.0
+    # 計算 Poisson 機率密度函數
+    def poisson_pmf(lmbda, k):
+        return math.exp(-lmbda) * (lmbda ** k) / math.factorial(k)
 
-    # 避免負值
-    home_lambda = max(0.1, home_lambda)
-    away_lambda = max(0.1, away_lambda)
+    home_prob = 0.0
+    away_prob = 0.0
+    draw_prob = 0.0
 
-    # 各隊進 0～5 球的機率（>=5 全累加至 5）
-    max_g = 5
-    home_pmf = [poisson_pmf(home_lambda, i) for i in range(max_g)]
-    away_pmf = [poisson_pmf(away_lambda, i) for i in range(max_g)]
-    home_pmf.append(1 - sum(home_pmf))
-    away_pmf.append(1 - sum(away_pmf))
-
-    # 計算聯合機率
-    home_win = draw = away_win = 0.0
-    for i in range(max_g + 1):
-        for j in range(max_g + 1):
-            p = home_pmf[i] * away_pmf[j]
+    for i in range(max_goals + 1):
+        for j in range(max_goals + 1):
+            p = poisson_pmf(home_exp, i) * poisson_pmf(away_exp, j)
             if i > j:
-                home_win += p
-            elif i == j:
-                draw += p
+                home_prob += p
+            elif i < j:
+                away_prob += p
             else:
-                away_win += p
+                draw_prob += p
 
-    # 信心值：ELO 差距 / 400，上限 1.0
-    elo_diff = abs(home_elo - away_elo)
-    confidence = min(elo_diff / 400.0, 1.0)
+    # 信心度：ELO 差距絕對值除以 400，最高 1.0
+    confidence = min(abs(elo_diff) / 400, 1.0)
 
     return {
-        "home_prob": round(home_win, 4),
-        "draw_prob": round(draw, 4),
-        "away_prob": round(away_win, 4),
+        "home_prob": round(home_prob, 4),
+        "draw_prob": round(draw_prob, 4),
+        "away_prob": round(away_prob, 4),
         "confidence": round(confidence, 4)
     }
