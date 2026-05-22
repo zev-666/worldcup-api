@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import matches, odds, predictions, users
+from app.routers import payments  # 🆕 匯入金流路由
 
 app = FastAPI()
 
@@ -21,6 +22,7 @@ app.include_router(matches.router)
 app.include_router(odds.router, prefix="/odds", tags=["odds"])
 app.include_router(predictions.router)
 app.include_router(users.router)
+app.include_router(payments.router)  # 🆕 註冊金流路由（prefix 已在 payments.py 中定義）
 
 # 防休眠健康檢查
 @app.api_route("/health", methods=["GET", "HEAD"])
