@@ -23,6 +23,6 @@ app.include_router(predictions.router)
 app.include_router(users.router)
 
 # 防休眠健康檢查
-@app.get("/health")
-def health():
+@app.api_route("/health", methods=["GET", "HEAD"])
+async def health_check():
     return {"status": "ok"}
