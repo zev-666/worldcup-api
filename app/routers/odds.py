@@ -6,7 +6,7 @@ router = APIRouter()
 
 @router.get("/")
 async def get_odds(fixture_id: int = Query(None)):
-    # 你原本的賠率查詢邏輯（保持不變）
+    """原有的賠率查詢（依 fixture_id 整數查詢）"""
     if fixture_id:
         data = supabase.table("odds_snapshots").select("*").eq("fixture_id", fixture_id).execute()
         return data.data
@@ -16,12 +16,12 @@ async def get_odds(fixture_id: int = Query(None)):
 
 @router.get("/detailed/{match_id}", summary="Pro 詳細賠率")
 async def get_detailed_odds(
-    match_id: int,
+    match_id: str,   # ✅ 改為 str，因為 match_id 是 UUID
     current_user: dict = Depends(require_pro)
 ):
     """
     僅限 Pro 會員：回傳該比賽的詳細賠率市場（讓球、大小球、BTTS）
-    此處為模擬資料，實際可從 odds_snapshots 或其他表查詢
+    此處為模擬資料，未來可改成查詢真實賠率表
     """
     detailed = {
         "match_id": match_id,

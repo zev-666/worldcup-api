@@ -18,7 +18,7 @@ app.add_middleware(
 
 # 註冊路由
 app.include_router(matches.router)
-app.include_router(odds.router)
+app.include_router(odds.router, prefix="/odds", tags=["odds"])
 app.include_router(predictions.router)
 app.include_router(users.router)
 
