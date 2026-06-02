@@ -1,0 +1,29 @@
+# ======================================================
+# 後端 .env 完整範本
+# 位置：C:\Users\samli\Desktop\worldcup_api\.env
+# ======================================================
+
+# 已有的變數（填入你的值）
+SUPABASE_URL=你的Supabase專案URL
+SUPABASE_KEY=你的anon_key（重新產生後的）
+SUPABASE_SERVICE_KEY=你的service_role_key（重新產生後的）
+ODDSPAPI_KEY=你的OddsPapi_key（重新產生後的）
+SUPABASE_JWT_SECRET=你的JWT_secret
+
+# 新增：LemonSqueezy（完成帳號設定後填入）
+LEMONSQUEEZY_WEBHOOK_SECRET=從LemonSqueezy_Dashboard取得
+LEMONSQUEEZY_API_KEY=從LemonSqueezy_Dashboard取得
+
+
+# ======================================================
+# 前端 .env.local 完整範本
+# 位置：C:\Users\samli\Desktop\worldcup-frontend\.env.local
+# ======================================================
+
+# 已有的變數
+NEXT_PUBLIC_SUPABASE_URL=你的Supabase專案URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=你的anon_key
+NEXT_PUBLIC_API_URL=https://worldcup-api-jryd.onrender.com
+
+# 新增：LemonSqueezy（完成帳號設定後填入）
+NEXT_PUBLIC_LEMONSQUEEZY_CHECKOUT_URL=https://你的店名.lemonsqueezy.com/checkout/buy/產品ID
