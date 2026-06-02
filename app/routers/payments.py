@@ -1,95 +1,98 @@
-# 檔案位置: app/routers/payments.py
-import os
-import stripe
+"""
+LemonSqueezy Webhook 端點
+檔案位置：app/routers/payments.py
+
+在 app/main.py 加入：
+    from app.routers import payments
+    app.include_router(payments.router, prefix="/webhook", tags=["webhook"])
+"""
+
+import hashlib
+import hmac
+import json
 import logging
-from fastapi import APIRouter, Request, HTTPException, Depends
-from app.dependencies import get_current_user
-from app.config import SUPABASE_URL, SUPABASE_SERVICE_KEY  # 🆕 使用統一的 config
 
-# 設定 logger
-logging.basicConfig(level=logging.INFO)
+from fastapi import APIRouter, Header, HTTPException, Request
+from app.config import settings
+from app.database import get_supabase_admin
+
 logger = logging.getLogger(__name__)
+router = APIRouter()
 
-router = APIRouter(prefix="/payments", tags=["payments"])
 
-# Stripe 設定
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
-FRONTEND_URL = "https://worldcup-frontend-pi.vercel.app"
-
-@router.post("/create-checkout-session")
-async def create_checkout_session(user: dict = Depends(get_current_user)):
+@router.post("/lemonsqueezy")
+async def lemonsqueezy_webhook(
+    request: Request,
+    x_signature: str = Header(None, alias="X-Signature"),
+):
     """
-    為已登入的使用者建立 Stripe Checkout Session。
-    前端呼叫後得到付款頁面網址。
-    """
-    try:
-        # 從使用者 dict 中取出 id（注意：get_current_user 回傳 dict，不是物件）
-        user_id = user.get("id")
-        if not user_id:
-            raise HTTPException(status_code=400, detail="無法取得使用者 ID")
+    接收 LemonSqueezy 付款成功事件，自動升級用戶為 Pro。
 
-        session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price': os.getenv("STRIPE_PRO_PRICE_ID"),
-                'quantity': 1,
-            }],
-            mode='payment',
-            success_url=FRONTEND_URL + '/account?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=FRONTEND_URL + '/account',
-            client_reference_id=user_id,
-            metadata={'user_id': user_id}
-        )
-        return {"url": session.url}
-    except Exception as e:
-        logger.error(f"建立 Checkout Session 失敗: {e}")
-        raise HTTPException(status_code=500, detail="建立付款 session 時發生錯誤")
+    LemonSqueezy 會在以下情況發送 Webhook：
+    - order_created：訂單建立（付款成功）
+    - 其他事件：直接回傳 200 忽略
 
-@router.post("/webhook")
-async def stripe_webhook(request: Request):
+    驗證方式：HMAC-SHA256 簽名驗證
     """
-    接收 Stripe Webhook 事件，驗證簽名後處理付款完成。
-    """
-    payload = await request.body()
-    sig_header = request.headers.get('stripe-signature')
+    # 1. 讀取原始 body
+    raw_body = await request.body()
 
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, endpoint_secret
-        )
-    except ValueError as e:
-        logger.error(f"Webhook 錯誤: 無效的 payload - {e}")
-        raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError as e:
-        logger.error(f"Webhook 錯誤: 無效的簽名 - {e}")
+    # 2. 驗證簽名（防止偽造請求）
+    if not x_signature:
+        logger.warning("LemonSqueezy webhook: missing X-Signature header")
+        raise HTTPException(status_code=400, detail="Missing signature")
+
+    expected_sig = hmac.new(
+        settings.lemonsqueezy_webhook_secret.encode("utf-8"),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_sig, x_signature):
+        logger.warning("LemonSqueezy webhook: invalid signature")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # 處理付款成功事件
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        user_id = session.get('metadata', {}).get('user_id')
-        if user_id:
-            logger.info(f"使用者 {user_id} 付款成功，正在升級會員...")
-            await upgrade_user_to_pro(user_id)
-        else:
-            logger.warning("收到付款完成事件，但找不到 user_id")
-
-    return {"status": "success"}
-
-async def upgrade_user_to_pro(user_id: str):
-    """
-    使用 config 中的 Supabase 連線，將使用者 tier 改為 'pro'。
-    """
+    # 3. 解析事件
     try:
-        # 使用共用的 Supabase 配置初始化
-        from supabase import create_client
-        supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
 
-        response = supabase.table("users").update({"tier": "pro"}).eq("id", user_id).execute()
-        logger.info(f"已成功將使用者 {user_id} 升級為 Pro。")
-        return response
+    event_name = payload.get("meta", {}).get("event_name", "")
+    logger.info(f"LemonSqueezy webhook received: {event_name}")
+
+    # 4. 只處理 order_created 事件
+    if event_name != "order_created":
+        return {"status": "ignored", "event": event_name}
+
+    # 5. 取出購買者 email
+    try:
+        customer_email = (
+            payload["data"]["attributes"]["user_email"]
+        )
+    except (KeyError, TypeError):
+        logger.error(f"LemonSqueezy webhook: cannot find email in payload")
+        # 回傳 200 避免 LemonSqueezy 不斷重試
+        return {"status": "error", "detail": "email not found in payload"}
+
+    # 6. 更新 Supabase users 表的 tier 為 pro
+    try:
+        supabase = get_supabase_admin()
+        result = (
+            supabase.table("users")
+            .update({"tier": "pro"})
+            .eq("email", customer_email)
+            .execute()
+        )
+
+        if result.data:
+            logger.info(f"Upgraded user to pro: {customer_email}")
+            return {"status": "ok", "email": customer_email, "tier": "pro"}
+        else:
+            logger.warning(f"User not found in DB: {customer_email}")
+            return {"status": "user_not_found", "email": customer_email}
+
     except Exception as e:
-        logger.error(f"升級使用者 {user_id} 時發生錯誤: {e}")
-        # 此處可加入通知機制（例如發送警報）
-        raise e  # 讓 webhook 回傳錯誤，Stripe 會自動重試
+        logger.error(f"LemonSqueezy webhook DB error: {e}")
+        # 回傳 200 避免重試，錯誤記在 log
+        return {"status": "db_error"}

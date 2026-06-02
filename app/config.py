@@ -8,3 +8,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 ODDSPAPI_KEY = os.getenv("ODDSPAPI_KEY")
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+    # LemonSqueezy 金流
+    lemonsqueezy_webhook_secret: str = ""
+    lemonsqueezy_api_key: str = ""
