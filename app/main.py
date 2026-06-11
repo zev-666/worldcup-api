@@ -26,6 +26,7 @@ app.include_router(odds.router, prefix="/odds", tags=["odds"])
 app.include_router(predictions.router)
 app.include_router(users.router)
 app.include_router(payments.router)
+app.include_router(agent.router, prefix="/api/scraped-data", tags=["agent"])
 
 # Health check（支援 GET 和 HEAD，UptimeRobot 需要 HEAD）
 @app.api_route("/health", methods=["GET", "HEAD"])
