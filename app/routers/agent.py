@@ -34,7 +34,7 @@ async def accept_scraped_data(
     verify_token(authorization)
 
     from app.database import get_supabase_service_client
-    supabase = get_supabase_service_client()
+        supabase = get_supabase_admin()
 
     try:
         result = supabase.table("scraped_data").upsert({
