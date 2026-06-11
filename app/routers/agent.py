@@ -19,7 +19,7 @@ def verify_token(authorization: str):
 
 
 class ScrapedData(BaseModel):
-    data_type: str       # 'odds' 或 'squads'
+    data_type: str
     match_id: str
     content: Any
     date: str
@@ -30,11 +30,9 @@ async def accept_scraped_data(
     data: ScrapedData,
     authorization: str = Header(...)
 ):
-    """接收 agent 抓取的資料，upsert 到 Supabase（冪等）"""
     verify_token(authorization)
-
-    from app.database import get_supabase_service_client
-        supabase = get_supabase_admin()
+    from app.database import get_supabase_admin
+    supabase = get_supabase_admin()
 
     try:
         result = supabase.table("scraped_data").upsert({
@@ -54,6 +52,5 @@ async def accept_scraped_data(
 
 @router.post("/run", status_code=202)
 async def trigger_agent(authorization: str = Header(...)):
-    """Cloudflare Workers 呼叫此端點觸發 agent"""
     verify_token(authorization)
     return {"status": "accepted"}
