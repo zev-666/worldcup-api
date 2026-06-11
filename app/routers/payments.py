@@ -1,5 +1,5 @@
 """
-LemonSqueezy Webhook 端點
+Webhook 端點：LemonSqueezy（保留）+ Gumroad（新增）
 檔案位置：app/routers/payments.py
 """
 
@@ -22,12 +22,10 @@ async def lemonsqueezy_webhook(
     x_signature: str = Header(None, alias="X-Signature"),
 ):
     """
-    接收 LemonSqueezy 付款成功事件，自動升級用戶為 Pro。
-    驗證方式：HMAC-SHA256 簽名驗證
+    LemonSqueezy Webhook（已停用，保留備用）
     """
     raw_body = await request.body()
 
-    # 驗證簽名
     secret = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
     if not x_signature or not secret:
         logger.warning("LemonSqueezy webhook: missing signature or secret")
@@ -43,7 +41,6 @@ async def lemonsqueezy_webhook(
         logger.warning("LemonSqueezy webhook: invalid signature")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # 解析事件
     try:
         payload = json.loads(raw_body)
     except json.JSONDecodeError:
@@ -52,18 +49,15 @@ async def lemonsqueezy_webhook(
     event_name = payload.get("meta", {}).get("event_name", "")
     logger.info(f"LemonSqueezy event received: {event_name}")
 
-    # 只處理 order_created
     if event_name != "order_created":
         return {"status": "ignored", "event": event_name}
 
-    # 取出購買者 email
     try:
         customer_email = payload["data"]["attributes"]["user_email"]
     except (KeyError, TypeError):
         logger.error("LemonSqueezy webhook: cannot find email in payload")
         return {"status": "error", "detail": "email not found"}
 
-    # 更新 Supabase users 表 tier 為 pro
     try:
         supabase = get_supabase_admin()
         result = (
@@ -73,11 +67,51 @@ async def lemonsqueezy_webhook(
             .execute()
         )
         if result.data:
-            logger.info(f"Upgraded to pro: {customer_email}")
+            logger.info(f"[LS] Upgraded to pro: {customer_email}")
             return {"status": "ok", "email": customer_email}
         else:
-            logger.warning(f"User not found: {customer_email}")
+            logger.warning(f"[LS] User not found: {customer_email}")
             return {"status": "user_not_found"}
     except Exception as e:
-        logger.error(f"DB error: {e}")
+        logger.error(f"[LS] DB error: {e}")
+        return {"status": "db_error"}
+
+
+@router.post("/gumroad")
+async def gumroad_webhook(request: Request):
+    """
+    Gumroad Webhook（現用金流）
+    設定位置：Gumroad Dashboard → Settings → Advanced → Ping
+    Ping URL：https://worldcup-api-jryd.onrender.com/webhook/gumroad
+    注意：Gumroad 不提供驗簽，直接讀取 email 即可
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        logger.error("Gumroad webhook: invalid JSON")
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    email = body.get("email")
+    logger.info(f"Gumroad webhook received, email: {email}")
+
+    if not email:
+        logger.warning("Gumroad webhook: no email in payload")
+        return {"status": "no_email"}
+
+    try:
+        supabase = get_supabase_admin()
+        result = (
+            supabase.table("users")
+            .update({"tier": "pro"})
+            .eq("email", email)
+            .execute()
+        )
+        if result.data:
+            logger.info(f"[Gumroad] Upgraded to pro: {email}")
+            return {"status": "ok", "email": email}
+        else:
+            logger.warning(f"[Gumroad] User not found: {email}")
+            return {"status": "user_not_found"}
+    except Exception as e:
+        logger.error(f"[Gumroad] DB error: {e}")
         return {"status": "db_error"}
