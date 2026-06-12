@@ -32,13 +32,6 @@ class AgentState(TypedDict):
 async def plan_node(state: AgentState) -> AgentState:
     logger.info(f"[Plan] 取得 {state['date']} 比賽清單")
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(
-            f"{os.environ['SUPABASE_URL']}/rest/v1/matches",
-            headers={
-                "apikey": os.environ["SUPABASE_KEY"],
-                "Authorization": f"Bearer {os.environ['SUPABASE_KEY']}",
-            },
     url = (
         f"{os.environ['SUPABASE_URL']}/rest/v1/matches"
         f"?select=id,home_team,away_team,kickoff_utc"
@@ -54,7 +47,6 @@ async def plan_node(state: AgentState) -> AgentState:
                 "Authorization": f"Bearer {os.environ['SUPABASE_KEY']}",
             }
         )
-        )
 
     if resp.status_code == 200:
         matches = resp.json()
@@ -67,7 +59,7 @@ async def plan_node(state: AgentState) -> AgentState:
 
 
 async def scrape_odds_node(state: AgentState) -> AgentState:
-    logger.info(f"[Odds] 開始抓取賠率（{len(state['matches_to_scrape'])} 場）")
+    logger.info(f"[Odds] 開始抓取預測資料（{len(state['matches_to_scrape'])} 場）")
     scraped_odds = []
     errors = list(state.get("errors", []))
 
@@ -75,25 +67,23 @@ async def scrape_odds_node(state: AgentState) -> AgentState:
         for match in state["matches_to_scrape"]:
             try:
                 resp = await client.get(
-                    "https://api.oddspapi.com/v1/odds",
-                    params={
-                        "apiKey": os.environ.get("ODDSPAPI_KEY", ""),
-                        "sport": "soccer",
-                        "league": "FIFA World Cup",
-                    }
+                    f"{os.environ['API_ENDPOINT']}/predict/{match['id']}"
                 )
-                raw = resp.json() if resp.status_code == 200 else {"status": "no_data"}
-                scraped_odds.append({
-                    "match_id": match["id"],
-                    "home_team": match["home_team"],
-                    "away_team": match["away_team"],
-                    "raw_data": raw,
-                    "scraped_at": date.today().isoformat()
-                })
+                if resp.status_code == 200:
+                    scraped_odds.append({
+                        "match_id": match["id"],
+                        "home_team": match["home_team"],
+                        "away_team": match["away_team"],
+                        "raw_data": resp.json(),
+                        "scraped_at": date.today().isoformat()
+                    })
+                    logger.info(f"預測資料取得: {match['home_team']} vs {match['away_team']}")
+                else:
+                    errors.append(f"預測 API 失敗: {resp.status_code}")
                 await asyncio.sleep(1)
 
             except Exception as e:
-                msg = f"賠率抓取失敗 {match.get('home_team')} vs {match.get('away_team')}: {e}"
+                msg = f"預測抓取失敗 {match.get('home_team')}: {e}"
                 logger.warning(msg)
                 errors.append(msg)
 
@@ -102,38 +92,8 @@ async def scrape_odds_node(state: AgentState) -> AgentState:
 
 
 async def scrape_squads_node(state: AgentState) -> AgentState:
-    logger.info("[Squads] 開始抓取球隊陣容")
-    scraped_squads = []
-    errors = list(state.get("errors", []))
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        for match in state["matches_to_scrape"]:
-            try:
-                resp = await client.get(
-                    "https://api.football-data.org/v4/competitions/WC/teams",
-                    headers={
-                        "X-Auth-Token": os.environ.get("FOOTBALL_API_KEY", "")
-                    }
-                )
-                if resp.status_code == 200:
-                    scraped_squads.append({
-                        "match_id": match["id"],
-                        "home_team": match["home_team"],
-                        "away_team": match["away_team"],
-                        "teams_data": resp.json(),
-                        "scraped_at": date.today().isoformat()
-                    })
-                else:
-                    logger.warning(f"陣容 API 回傳 {resp.status_code}，略過")
-                await asyncio.sleep(1)
-
-            except Exception as e:
-                msg = f"陣容抓取失敗 {match.get('home_team')}: {e}"
-                logger.warning(msg)
-                errors.append(msg)
-
-    logger.info(f"[Squads] 完成 {len(scraped_squads)} 筆")
-    return {**state, "scraped_squads": scraped_squads, "errors": errors}
+    logger.info("[Squads] 略過（無有效 API key）")
+    return {**state, "scraped_squads": [], "errors": state.get("errors", [])}
 
 
 async def write_node(state: AgentState) -> AgentState:
